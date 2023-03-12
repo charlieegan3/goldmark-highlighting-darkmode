@@ -1,4 +1,4 @@
-module github.com/yuin/goldmark-highlighting/v2
+module github.com/charlieegan3/goldmark-highlighting-darkmode/v2
 
 go 1.13
 

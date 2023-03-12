@@ -112,6 +112,9 @@ type Config struct {
 	// Supported styles are defined under https://github.com/alecthomas/chroma/tree/master/formatters.
 	Style string
 
+	// Style to use in dark mode
+	StyleDarkMode string
+
 	// Pass in a custom Chroma style. If this is not nil, the Style string will be ignored
 	CustomStyle *chroma.Style
 
@@ -153,6 +156,8 @@ func (c *Config) SetOption(name renderer.OptionName, value interface{}) {
 	switch name {
 	case optStyle:
 		c.Style = value.(string)
+	case optStyleDarkMode:
+		c.StyleDarkMode = value.(string)
 	case optCustomStyle:
 		c.CustomStyle = value.(*chroma.Style)
 	case optFormatOptions:
@@ -205,6 +210,7 @@ func WithHTMLOptions(opts ...html.Option) Option {
 }
 
 const optStyle renderer.OptionName = "HighlightingStyle"
+const optStyleDarkMode renderer.OptionName = "HighlightingStyleDarkMode"
 const optCustomStyle renderer.OptionName = "HighlightingCustomStyle"
 
 var highlightLinesAttrName = []byte("hl_lines")
@@ -231,6 +237,23 @@ func (o *withStyle) SetHighlightingOption(c *Config) {
 // WithStyle is a functional option that changes highlighting style.
 func WithStyle(style string) Option {
 	return &withStyle{style}
+}
+
+type withStyleDarkMode struct {
+	value string
+}
+
+func (o *withStyleDarkMode) SetConfig(c *renderer.Config) {
+	c.Options[optStyle] = o.value
+}
+
+func (o *withStyleDarkMode) SetHighlightingOption(c *Config) {
+	c.StyleDarkMode = o.value
+}
+
+// WithStyleDarkMode is a functional option that changes highlighting style for darkmode.
+func WithStyleDarkMode(style string) Option {
+	return &withStyleDarkMode{style}
 }
 
 type withCustomStyle struct {
@@ -532,7 +555,11 @@ func (r *HTMLRenderer) renderFencedCodeBlock(w util.BufWriter, source []byte, no
 		c = newCodeBlockContext(language, false, attrs)
 		r.WrapperRenderer(w, c, true)
 	} else {
-		_, _ = w.WriteString("<pre><code")
+		prefix := "<pre><code"
+		if r.StyleDarkMode != "" {
+			prefix = "<pre class=\"light-mode\"><code"
+		}
+		_, _ = w.WriteString(prefix)
 		language := n.Language(source)
 		if language != nil {
 			_, _ = w.WriteString(" class=\"language-")
@@ -551,6 +578,34 @@ func (r *HTMLRenderer) renderFencedCodeBlock(w util.BufWriter, source []byte, no
 	} else {
 		_, _ = w.WriteString("</code></pre>\n")
 	}
+
+	if r.StyleDarkMode != "" {
+		var c CodeBlockContext
+		if r.WrapperRenderer != nil {
+			c = newCodeBlockContext(language, false, attrs)
+			r.WrapperRenderer(w, c, true)
+		} else {
+			_, _ = w.WriteString("<pre class=\"dark-mode\"><code")
+			language := n.Language(source)
+			if language != nil {
+				_, _ = w.WriteString(" class=\"language-")
+				r.Writer.Write(w, language)
+				_, _ = w.WriteString("\"")
+			}
+			_ = w.WriteByte('>')
+		}
+		l := n.Lines().Len()
+		for i := 0; i < l; i++ {
+			line := n.Lines().At(i)
+			r.Writer.RawWrite(w, line.Value(source))
+		}
+		if r.WrapperRenderer != nil {
+			r.WrapperRenderer(w, c, false)
+		} else {
+			_, _ = w.WriteString("</code></pre>\n")
+		}
+	}
+
 	return ast.WalkContinue, nil
 }
 

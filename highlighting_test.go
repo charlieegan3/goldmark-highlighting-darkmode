@@ -178,6 +178,46 @@ func main() {
 	}
 }
 
+func TestHighlightingDarkMode(t *testing.T) {
+	markdown := goldmark.New(
+		goldmark.WithExtensions(
+			NewHighlighting(
+				WithStyle("monokailight"),
+				WithStyleDarkMode("monokai"),
+			),
+		),
+	)
+	var buffer bytes.Buffer
+	if err := markdown.Convert([]byte(`
+Title
+=======
+`+"```"+`
+func main() {
+    fmt.Println("ok")
+}
+`+"```"+`
+`), &buffer); err != nil {
+		t.Fatal(err)
+	}
+
+	expected := `
+<h1>Title</h1>
+<pre class="light-mode"><code>func main() {
+    fmt.Println(&quot;ok&quot;)
+}
+</code></pre>
+<pre class="dark-mode"><code>func main() {
+    fmt.Println(&quot;ok&quot;)
+}
+</code></pre>
+`
+
+	if strings.TrimSpace(buffer.String()) != strings.TrimSpace(expected) {
+		t.Error(buffer.String())
+		t.Error("failed to render HTML")
+	}
+}
+
 func TestHighlighting3(t *testing.T) {
 	markdown := goldmark.New(
 		goldmark.WithExtensions(
