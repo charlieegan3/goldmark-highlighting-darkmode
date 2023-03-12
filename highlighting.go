@@ -244,7 +244,7 @@ type withStyleDarkMode struct {
 }
 
 func (o *withStyleDarkMode) SetConfig(c *renderer.Config) {
-	c.Options[optStyle] = o.value
+	c.Options[optStyleDarkMode] = o.value
 }
 
 func (o *withStyleDarkMode) SetHighlightingOption(c *Config) {
