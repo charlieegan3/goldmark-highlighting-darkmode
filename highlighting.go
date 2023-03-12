@@ -6,6 +6,7 @@ package highlighting
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -532,8 +533,17 @@ func (r *HTMLRenderer) renderFencedCodeBlock(w util.BufWriter, source []byte, no
 		if err == nil {
 			c := newCodeBlockContext(language, true, attrs)
 
+			if r.StyleDarkMode != "" {
+				chromaFormatterOptions = append(
+					chromaFormatterOptions,
+					chromahtml.WithPreWrapper(&ModePreWrapper{ModeClass: "light-mode"}),
+				)
+			}
 			if r.CodeBlockOptions != nil {
-				chromaFormatterOptions = append(chromaFormatterOptions, r.CodeBlockOptions(c)...)
+				chromaFormatterOptions = append(
+					chromaFormatterOptions,
+					r.CodeBlockOptions(c)...,
+				)
 			}
 			formatter := chromahtml.New(chromaFormatterOptions...)
 			if r.WrapperRenderer != nil {
@@ -546,6 +556,41 @@ func (r *HTMLRenderer) renderFencedCodeBlock(w util.BufWriter, source []byte, no
 			if r.CSSWriter != nil {
 				_ = formatter.WriteCSS(r.CSSWriter, style)
 			}
+
+			w.WriteString("\n")
+
+			if r.StyleDarkMode != "" {
+				iterator, _ = lexer.Tokenise(nil, buffer.String())
+				style := r.CustomStyle
+				if style == nil {
+					style = styles.Get(r.StyleDarkMode)
+				}
+
+				c := newCodeBlockContext(language, true, attrs)
+
+				chromaFormatterOptions = append(
+					chromaFormatterOptions,
+					chromahtml.WithPreWrapper(&ModePreWrapper{ModeClass: "dark-mode"}),
+				)
+				if r.CodeBlockOptions != nil {
+					chromaFormatterOptions = append(
+						chromaFormatterOptions,
+						r.CodeBlockOptions(c)...,
+					)
+				}
+				formatter := chromahtml.New(chromaFormatterOptions...)
+				if r.WrapperRenderer != nil {
+					r.WrapperRenderer(w, c, true)
+				}
+				_ = formatter.Format(w, style, iterator) == nil
+				if r.WrapperRenderer != nil {
+					r.WrapperRenderer(w, c, false)
+				}
+				if r.CSSWriter != nil {
+					_ = formatter.WriteCSS(r.CSSWriter, style)
+				}
+			}
+
 			return ast.WalkContinue, nil
 		}
 	}
@@ -630,4 +675,24 @@ func (e *highlighting) Extend(m goldmark.Markdown) {
 	m.Renderer().AddOptions(renderer.WithNodeRenderers(
 		util.Prioritized(NewHTMLRenderer(e.options...), 200),
 	))
+}
+
+type ModePreWrapper struct {
+	ModeClass string
+}
+
+func (m *ModePreWrapper) Start(code bool, styleAttr string) string {
+	if code {
+		return fmt.Sprintf(`<pre class="%s" tabindex="0"%s><code>`, m.ModeClass, styleAttr)
+	}
+
+	return fmt.Sprintf(`<pre tabindex="0"%s>`, styleAttr)
+}
+
+func (m *ModePreWrapper) End(code bool) string {
+	if code {
+		return `</code></pre>`
+	}
+
+	return `</pre>`
 }

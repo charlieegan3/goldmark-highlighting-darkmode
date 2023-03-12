@@ -218,6 +218,47 @@ func main() {
 	}
 }
 
+func TestHighlightingDarkMode2(t *testing.T) {
+	markdown := goldmark.New(
+		goldmark.WithExtensions(
+			NewHighlighting(
+				WithStyle("monokailight"),
+				WithStyleDarkMode("monokai"),
+				WithGuessLanguage(true),
+			),
+		),
+	)
+	var buffer bytes.Buffer
+	if err := markdown.Convert([]byte(`
+Title
+=======
+`+"```"+`
+func main() {
+    fmt.Println("ok")
+}
+`+"```"+`
+`), &buffer); err != nil {
+		t.Fatal(err)
+	}
+
+	expected := `
+<h1>Title</h1>
+<pre class="light-mode" tabindex="0" style="color:#272822;background-color:#fafafa;"><code><span style="display:flex;"><span>func main() {
+</span></span><span style="display:flex;"><span>    fmt.Println(&#34;ok&#34;)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre>
+<pre class="dark-mode" tabindex="0" style="color:#f8f8f2;background-color:#272822;"><code><span style="display:flex;"><span>func main() {
+</span></span><span style="display:flex;"><span>    fmt.Println(&#34;ok&#34;)
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre>
+`
+
+	if strings.TrimSpace(buffer.String()) != strings.TrimSpace(expected) {
+		t.Log(buffer.String())
+		t.Error("failed to render HTML")
+	}
+}
+
 func TestHighlighting3(t *testing.T) {
 	markdown := goldmark.New(
 		goldmark.WithExtensions(
